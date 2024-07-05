@@ -177,14 +177,16 @@
             const bassLine = generateBass(scale, 32);
             const title = generateTitle();
             const bpm = Math.floor(Math.random() * 10) + 65;
+            const pixelArt = createPixelArt(title); // Get pixel art data URL
 
-            const song = { title, melodyLine, bassLine, bpm };
+            const song = { title, melodyLine, bassLine, bpm, pixelArt }; // Include pixel art in song object
             songInventory.unshift(song);
             if (songInventory.length > 5) {
                 songInventory.pop();
             }
             currentSongIndex = 0;
             updateInventoryUI();
+            updateMainPixelArt(pixelArt); // Update main canvas with new pixel art
             return song;
         }
 
@@ -192,8 +194,10 @@
             return `${getRandomElement(biomes)} ${getRandomElement(times)}`;
         }
 
-        function generatePixelArt(title) {
-            const canvas = document.getElementById('pixelArt');
+        function createPixelArt(title) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
             const ctx = canvas.getContext('2d');
             const width = canvas.width;
             const height = canvas.height;
@@ -217,6 +221,19 @@
                 ctx.fillStyle = getRandomElement(colors);
                 ctx.fillRect(shapeX, shapeY, shapeSize, shapeSize);
             }
+
+            return canvas.toDataURL();
+        }
+
+        function updateMainPixelArt(dataURL) {
+            const canvas = document.getElementById('pixelArt');
+            const ctx = canvas.getContext('2d');
+            const image = new Image();
+            image.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            };
+            image.src = dataURL;
         }
 
         function updateTimer() {
@@ -232,7 +249,7 @@
 
         function playSong(song) {
             if (melodySequence) melodySequence.dispose();
-            if (bassSequence) bassSequence.dispose();
+            if (bassSequence) melodySequence.dispose();
 
             melodySequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
@@ -249,7 +266,7 @@
             Tone.Transport.bpm.value = song.bpm;
 
             document.getElementById('songTitle').textContent = song.title;
-            generatePixelArt(song.title);
+            updateMainPixelArt(song.pixelArt); // Update main canvas with song's pixel art
 
             melodySequence.start(0);
             bassSequence.start(0);
@@ -265,6 +282,16 @@
                 if (index === currentSongIndex) {
                     slot.classList.add('active');
                 }
+                
+                // Create an img element for the pixel art
+                const img = document.createElement('img');
+                img.src = song.pixelArt;
+                img.alt = song.title;
+                img.style.width = '100%';
+                img.style.height = '100%';
+
+                slot.appendChild(img); // Append the img element to the slot
+
                 slot.addEventListener('click', () => selectSong(index));
                 inventoryContainer.appendChild(slot);
             });
@@ -281,6 +308,7 @@
                 currentSongIndex = index;
                 updateInventoryUI();
                 playSong(songInventory[index]);
+                updateMainPixelArt(songInventory[index].pixelArt); // Update main canvas with selected song's pixel art
                 isPlaying = true;
                 startTime = Date.now();
                 updateTimer();
