@@ -297,6 +297,27 @@
             });
         }
 
+        function createDirtPixelArt() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+
+            // Define dirt colors
+            const dirtColors = ['#7A5C42', '#8B6D50', '#9C7E5E', '#AD8F6C'];
+
+            // Draw the dirt pattern
+            for (let y = 0; y < canvas.height; y++) {
+                for (let x = 0; x < canvas.width; x++) {
+                    ctx.fillStyle = getRandomElement(dirtColors);
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            // Return the data URL of the canvas
+            return canvas.toDataURL();
+        }
+
         async function selectSong(index) {
             try {
                 await Tone.start();
@@ -341,6 +362,10 @@
                 console.error("An error occurred:", error);
             }
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.style.backgroundImage = `url(${createDirtPixelArt()})`;
+        });
 
         document.getElementById('generateBtn').addEventListener('click', togglePlay);
         updateInventoryUI();
