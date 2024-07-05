@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Music Generator with Inventory</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @font-face {
+            font-family: 'Minecraft';
+            src: url('https://cdn.jsdelivr.net/gh/JKostov/minecraft-font@latest/fonts/minecraft_font.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        body {
+            font-family: 'Minecraft', monospace;
+            text-align: center;
+            padding: 20px;
+            background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAWlBMVEUAAAB5bGV3bWV2a2R2a2R3a2V2a2R3a2V2a2R3a2V4bGZ2bGV4bWV3bGV2a2VkwNl3a2V2a2V3a2WU1ed2a2WV1uh2a2Vevth2a2WWz+Oq6O6V1+j///92a2Xf7xAbAAAAHnRSTlMABhbo/v6rBv7+/v7+/vjx8Ojo6OgF8fHv7wX+/pPZHtvMAAAAhklEQVRIx+3WSw6AIAwE0LZYQPxS/u5/TwmSuBNCKLNi3k5fJhlmANBGEFGRtEyjUqKZGVtoOo0qF1JYUoxOEeU94CKHkIucAi7yh0JyT9SsRFfUjERVl9SZxFbTVKIPqnb8tW+nPm6lS/2sWZrSugB1CZ5NU1EXkz54bLMkp6I80/zTNI/xPQA6YB3Gm9TuXgAAAABJRU5ErkJggg==');
+            color: #FFFFFF;
+            text-shadow: 2px 2px #3F3F3F;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border: 2px solid #555555;
+        }
+        h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        #pixelArt {
+            display: block;
+            margin: 20px auto;
+            image-rendering: pixelated;
+            width: 200px;
+            height: 200px;
+            border: 4px solid #555555;
+        }
+        button {
+            font-family: 'Minecraft', monospace;
+            font-size: 18px;
+            padding: 10px 20px;
+            margin: 10px;
+            border: 2px solid #555555;
+            background-color: #8B8B8B;
+            color: #FFFFFF;
+            text-shadow: 2px 2px #3F3F3F;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #A0A0A0;
+        }
+        #timer {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        #inventory {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .inventory-slot {
+            width: 40px;
+            height: 40px;
+            background-color: #8B8B8B;
+            border: 2px solid #555555;
+            margin: 0 5px;
+            cursor: pointer;
+        }
+        .inventory-slot:hover {
+            background-color: #A0A0A0;
+        }
+        .inventory-slot.active {
+            border-color: #FFFF00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="songTitle">Minecraft Music Generator</h1>
+        <canvas id="pixelArt" width="32" height="32"></canvas>
+        <button id="generateBtn">Generate New Tune</button>
+        <div id="timer">0:00</div>
+        <div id="inventory"></div>
+    </div>
+
+    <script>
+        const reverb = new Tone.Reverb(5).toDestination();
+        const delay = new Tone.FeedbackDelay(0.3, 0.4).connect(reverb);
+        
+        const piano = new Tone.Sampler({
+            urls: {
+                C4: "https://tonejs.github.io/audio/salamander/C4.mp3",
+                "D#4": "https://tonejs.github.io/audio/salamander/Ds4.mp3",
+                "F#4": "https://tonejs.github.io/audio/salamander/Fs4.mp3",
+                A4: "https://tonejs.github.io/audio/salamander/A4.mp3",
+            },
+            release: 1,
+        }).connect(delay);
+
+        let melodySequence, bassSequence;
+        let isPlaying = false;
+        let startTime;
+        let currentSongIndex = -1;
+        const songInventory = [];
+
+        const scales = {
+            'C': ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
+            'G': ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
+            'A': ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
+            'F': ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
+            'D': ['D', 'E', 'F#', 'G', 'A', 'B', 'C#']
+        };
+
+        const biomes = ['Forest', 'Plains', 'Desert', 'Mountains', 'Ocean', 'Jungle', 'Taiga', 'Swamp', 'Savanna', 'Mesa'];
+        const times = ['Dawn', 'Day', 'Dusk', 'Night'];
+
+        const biomeColors = {
+            'Forest': ['#1B5E20', '#2E7D32', '#43A047', '#66BB6A'],
+            'Plains': ['#7CB342', '#8BC34A', '#9CCC65', '#AED581'],
+            'Desert': ['#FFA000', '#FFB300', '#FFC107', '#FFCA28'],
+            'Mountains': ['#757575', '#9E9E9E', '#BDBDBD', '#E0E0E0'],
+            'Ocean': ['#0277BD', '#0288D1', '#039BE5', '#03A9F4'],
+            'Jungle': ['#1B5E20', '#2E7D32', '#388E3C', '#43A047'],
+            'Taiga': ['#33691E', '#558B2F', '#689F38', '#7CB342'],
+            'Swamp': ['#33691E', '#4CAF50', '#8BC34A', '#795548'],
+            'Savanna': ['#F57F17', '#FBC02D', '#FFEB3B', '#FFF59D'],
+            'Mesa': ['#BF360C', '#D84315', '#E64A19', '#F4511E']
+        };
+
+        function getRandomElement(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+
+        function generateMelody(scale, length) {
+            const melody = [];
+            let previousNote = null;
+            for (let i = 0; i < length; i++) {
+                if (Math.random() < 0.2) {
+                    melody.push(null); // 20% chance of rest
+                } else {
+                    let note;
+                    if (previousNote === null || Math.random() < 0.3) {
+                        note = getRandomElement(scale);
+                    } else {
+                        const direction = Math.random() < 0.5 ? 1 : -1;
+                        const index = (scale.indexOf(previousNote) + direction + 7) % 7;
+                        note = scale[index];
+                    }
+                    const octave = Math.random() < 0.7 ? 4 : 5;
+                    melody.push(note + octave);
+                    previousNote = note;
+                }
+            }
+            return melody;
+        }
+
+        function generateBass(scale, length) {
+            const bass = [];
+            for (let i = 0; i < length; i++) {
+                if (i % 4 === 0 || Math.random() < 0.1) {
+                    bass.push(scale[Math.floor(i / 4) % 7] + "2");
+                } else {
+                    bass.push(null);
+                }
+            }
+            return bass;
+        }
+
+        function generateNewSong() {
+            const key = getRandomElement(Object.keys(scales));
+            const scale = scales[key];
+            const melodyLine = generateMelody(scale, 32);
+            const bassLine = generateBass(scale, 32);
+            const title = generateTitle();
+            const bpm = Math.floor(Math.random() * 10) + 65;
+
+            const song = { title, melodyLine, bassLine, bpm };
+            songInventory.unshift(song);
+            if (songInventory.length > 10) {
+                songInventory.pop();
+            }
+            currentSongIndex = 0;
+            updateInventoryUI();
+            return song;
+        }
+
+        function generateTitle() {
+            return `${getRandomElement(biomes)} ${getRandomElement(times)}`;
+        }
+
+        function generatePixelArt(title) {
+            const canvas = document.getElementById('pixelArt');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const biome = title.split(' ')[0];
+            const colors = biomeColors[biome];
+
+            ctx.clearRect(0, 0, width, height);
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    ctx.fillStyle = getRandomElement(colors);
+                    ctx.fillRect(x, y, 1, 1);
+                }
+            }
+
+            const numShapes = Math.floor(Math.random() * 5) + 3;
+            for (let i = 0; i < numShapes; i++) {
+                const shapeSize = Math.floor(Math.random() * 10) + 5;
+                const shapeX = Math.floor(Math.random() * (width - shapeSize));
+                const shapeY = Math.floor(Math.random() * (height - shapeSize));
+                ctx.fillStyle = getRandomElement(colors);
+                ctx.fillRect(shapeX, shapeY, shapeSize, shapeSize);
+            }
+        }
+
+        function updateTimer() {
+            if (isPlaying) {
+                const currentTime = Date.now();
+                const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+                const minutes = Math.floor(elapsedTime / 60);
+                const seconds = elapsedTime % 60;
+                document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                requestAnimationFrame(updateTimer);
+            }
+        }
+
+        function playSong(song) {
+            if (melodySequence) melodySequence.dispose();
+            if (bassSequence) bassSequence.dispose();
+
+            melodySequence = new Tone.Sequence((time, note) => {
+                if (note !== null) {
+                    piano.triggerAttackRelease(note, "8n", time, Math.random() * 0.5 + 0.5);
+                }
+            }, song.melodyLine, "8n");
+
+            bassSequence = new Tone.Sequence((time, note) => {
+                if (note !== null) {
+                    piano.triggerAttackRelease(note, "4n", time, 0.7);
+                }
+            }, song.bassLine, "8n");
+
+            Tone.Transport.bpm.value = song.bpm;
+
+            document.getElementById('songTitle').textContent = song.title;
+            generatePixelArt(song.title);
+
+            melodySequence.start(0);
+            bassSequence.start(0);
+            Tone.Transport.start();
+        }
+
+        function updateInventoryUI() {
+            const inventoryContainer = document.getElementById('inventory');
+            inventoryContainer.innerHTML = '';
+            songInventory.forEach((song, index) => {
+                const slot = document.createElement('div');
+                slot.className = 'inventory-slot';
+                if (index === currentSongIndex) {
+                    slot.classList.add('active');
+                }
+                slot.addEventListener('click', () => selectSong(index));
+                inventoryContainer.appendChild(slot);
+            });
+        }
+
+        async function selectSong(index) {
+            try {
+                await Tone.start();
+                if (isPlaying) {
+                    Tone.Transport.stop();
+                    if (melodySequence) melodySequence.stop();
+                    if (bassSequence) bassSequence.stop();
+                }
+                currentSongIndex = index;
+                updateInventoryUI();
+                playSong(songInventory[index]);
+                isPlaying = true;
+                startTime = Date.now();
+                updateTimer();
+                document.getElementById('generateBtn').textContent = 'Stop';
+            } catch (error) {
+                console.error("An error occurred:", error);
+            }
+        }
+
+        async function togglePlay() {
+            try {
+                await Tone.start();
+                const btn = document.getElementById('generateBtn');
+                if (isPlaying) {
+                    Tone.Transport.stop();
+                    if (melodySequence) melodySequence.stop();
+                    if (bassSequence) bassSequence.stop();
+                    isPlaying = false;
+                    document.getElementById('timer').textContent = '0:00';
+                    btn.textContent = 'Generate New Tune';
+                } else {
+                    const song = generateNewSong();
+                    playSong(song);
+                    isPlaying = true;
+                    startTime = Date.now();
+                    updateTimer();
+                    btn.textContent = 'Stop';
+                }
+            } catch (error) {
+                console.error("An error occurred:", error);
+            }
+        }
+
+        document.getElementById('generateBtn').addEventListener('click', togglePlay);
+        updateInventoryUI();
+    </script>
+</body>
+</html>
