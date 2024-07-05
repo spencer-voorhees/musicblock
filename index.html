@@ -324,7 +324,10 @@
                 if (isPlaying) {
                     Tone.Transport.stop();
                     if (melodySequence) melodySequence.stop();
-                    if (bassSequence) bassSequence.stop();
+                    if (bassSequence) melodySequence.stop();
+                    melodySequence.dispose();
+                    bassSequence.dispose();
+                    isPlaying = false;
                 }
                 currentSongIndex = index;
                 updateInventoryUI();
@@ -341,12 +344,14 @@
 
         async function togglePlay() {
             try {
-                await Tone.start();
+                await Tone.start(); // Ensure Tone.js is started
                 const btn = document.getElementById('generateBtn');
                 if (isPlaying) {
                     Tone.Transport.stop();
                     if (melodySequence) melodySequence.stop();
                     if (bassSequence) bassSequence.stop();
+                    melodySequence.dispose();
+                    bassSequence.dispose();
                     isPlaying = false;
                     document.getElementById('timer').textContent = '0:00';
                     btn.textContent = 'Generate New Tune';
