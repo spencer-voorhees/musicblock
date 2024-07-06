@@ -8,7 +8,7 @@
     <style>
         @font-face {
             font-family: 'Minecraft';
-            src: url('https://cdn.jsdelivr.net/gh/JKostov/minecraft-font@latest/fonts/minecraft_font.ttf') format('truetype');
+            src: url('https://cdn.jsdelivr.net/npm/typeface-minecraft@1.0.0/files/minecraft.ttf') format('truetype');
             font-weight: normal;
             font-style: normal;
         }
@@ -107,6 +107,8 @@
         let currentSongIndex = -1;
         const songInventory = [];
 
+        const defaultScale = 'C';
+
         const pentatonicScales = {
             'C': ['C', 'D', 'E', 'G', 'A'],
             'G': ['G', 'A', 'B', 'D', 'E'],
@@ -131,6 +133,23 @@
             'Mesa': ['#BF360C', '#D84315', '#E64A19', '#F4511E']
         };
 
+        const styleSettings = {
+            'Forest': { bpm: 70, scale: 'C', instrumentSettings: { reverb: 5, delay: 0.3 } },
+            'Plains': { bpm: 75, scale: 'G', instrumentSettings: { reverb: 4, delay: 0.25 } },
+            'Desert': { bpm: 80, scale: 'D', instrumentSettings: { reverb: 3, delay: 0.2 } },
+            'Mountains': { bpm: 65, scale: 'F', instrumentSettings: { reverb: 6, delay: 0.35 } },
+            'Ocean': { bpm: 60, scale: 'A', instrumentSettings: { reverb: 7, delay: 0.4 } },
+            'Jungle': { bpm: 85, scale: 'C', instrumentSettings: { reverb: 5, delay: 0.3 } },
+            'Taiga': { bpm: 70, scale: 'D', instrumentSettings: { reverb: 6, delay: 0.35 } },
+            'Swamp': { bpm: 65, scale: 'F', instrumentSettings: { reverb: 4, delay: 0.25 } },
+            'Savanna': { bpm: 75, scale: 'G', instrumentSettings: { reverb: 5, delay: 0.3 } },
+            'Mesa': { bpm: 80, scale: 'A', instrumentSettings: { reverb: 3, delay: 0.2 } },
+            'Dawn': { modifier: 0 },
+            'Day': { modifier: 5 },
+            'Dusk': { modifier: -5 },
+            'Night': { modifier: -10 }
+        };
+
         function getRandomElement(arr) {
             return arr[Math.floor(Math.random() * arr.length)];
         }
@@ -146,6 +165,28 @@
             return chords;
         }
 
+        function validNoteValue(note) {
+            if (typeof note !== 'string') return false;
+
+            // Split the note into its components
+            const noteRegex = /^([A-Ga-g])(#+|b+)?(\d)$/;
+            const match = note.match(noteRegex);
+
+            if (!match) return false;
+
+            const [, baseNote, accidental, octave] = match;
+
+            // Check that the base note is valid
+            const validBaseNotes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            if (!validBaseNotes.includes(baseNote.toUpperCase())) return false;
+
+            // Check that the octave is a valid number
+            const octaveNum = parseInt(octave, 10);
+            if (isNaN(octaveNum) || octaveNum < 0 || octaveNum > 8) return false;
+
+            return true;
+        }
+
         function generateMelody(scale, length, chordProgression) {
             const melody = [];
             let previousNote = null;
@@ -156,7 +197,7 @@
                     chordIndex = (chordIndex + 1) % chordProgression.length;
                 }
                 const chord = chordProgression[chordIndex];
-                
+
                 if (Math.random() < 0.1) {
                     melody.push(null); // 10% chance of rest
                 } else {
@@ -164,15 +205,16 @@
                     if (previousNote === null || Math.random() < 0.3) {
                         note = getRandomElement(chord);
                     } else {
-                        const index = (scale.indexOf(previousNote) + (Math.random() < 0.5 ? 1 : -1) + scale.length) % scale.length;
+                        const index = (scale.indexOf(previousNote[0]) + (Math.random() < 0.5 ? 1 : -1) + scale.length) % scale.length;
                         note = scale[index];
                     }
                     const octave = Math.random() < 0.9 ? 4 : 5;
-                    melody.push(note + octave);
+                    note += octave;
+                    melody.push(note);
                     previousNote = note;
                 }
             }
-            return melody;
+            return melody.filter(validNoteValue); // Ensure all notes are valid
         }
 
         function generateBass(scale, length, chordProgression) {
@@ -192,7 +234,7 @@
                     bass.push(null);
                 }
             }
-            return bass;
+            return bass.filter(validNoteValue); // Ensure all notes are valid
         }
 
         function generateArpeggio(scale, length, chordProgression) {
@@ -212,18 +254,27 @@
                     arpeggio.push(note);
                 }
             }
-            return arpeggio;
+            return arpeggio.filter(validNoteValue); // Ensure all notes are valid
+        }
+
+        function clampBpm(bpm, min = 40, max = 180) {
+            return Math.max(min, Math.min(bpm, max));
         }
 
         function generateNewSong() {
-            const key = getRandomElement(Object.keys(pentatonicScales));
+            const biome = getRandomElement(biomes);
+            const time = getRandomElement(times);
+            const biomeSettings = styleSettings[biome];
+            const timeModifier = styleSettings[time].modifier;
+
+            const key = biomeSettings.scale || defaultScale;
             const scale = pentatonicScales[key];
             const chordProgression = generateChordProgression(scale);
             const melodyLine = generateMelody(scale, 32, chordProgression);
             const bassLine = generateBass(scale, 32, chordProgression);
             const arpeggioLine = generateArpeggio(scale, 32, chordProgression);
-            const title = generateTitle();
-            const bpm = Math.floor(Math.random() * 10) + 60; // Between 60 and 70 BPM
+            const title = `${biome} ${time}`;
+            const bpm = clampBpm(biomeSettings.bpm + timeModifier); // Ensure BPM is within valid range
             const pixelArt = createPixelArt(title);
 
             const song = { title, melodyLine, bassLine, arpeggioLine, bpm, pixelArt };
@@ -295,27 +346,44 @@
         }
 
         function playSong(song) {
-            if (melodySequence) melodySequence.dispose();
-            if (bassSequence) melodySequence.dispose();
-            if (arpeggioSequence) arpeggioSequence.dispose();
+            if (melodySequence) {
+                melodySequence.stop();
+                melodySequence.dispose();
+            }
+            if (bassSequence) {
+                bassSequence.stop();
+                bassSequence.dispose();
+            }
+            if (arpeggioSequence) {
+                arpeggioSequence.stop();
+                arpeggioSequence.dispose();
+            }
+
+            // Apply instrument settings based on biome
+            const biome = song.title.split(' ')[0];
+            const settings = styleSettings[biome].instrumentSettings;
+            reverb.decay = settings.reverb;
+            delay.delayTime.value = settings.delay;
+
+            const filterValidNotes = (note) => validNoteValue(note) ? note : null;
 
             melodySequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
                     piano.triggerAttackRelease(note, "8n", time, Math.random() * 0.3 + 0.5);
                 }
-            }, song.melodyLine, "8n");
+            }, song.melodyLine.map(filterValidNotes), "8n");
 
             bassSequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
                     piano.triggerAttackRelease(note, "4n", time, 0.6);
                 }
-            }, song.bassLine, "8n");
+            }, song.bassLine.map(filterValidNotes), "8n");
 
             arpeggioSequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
                     piano.triggerAttackRelease(note, "16n", time, Math.random() * 0.2 + 0.3);
                 }
-            }, song.arpeggioLine, "16n");
+            }, song.arpeggioLine.map(filterValidNotes), "16n");
 
             Tone.Transport.bpm.value = song.bpm;
 
@@ -403,10 +471,18 @@
                 const btn = document.getElementById('generateBtn');
                 if (isPlaying) {
                     Tone.Transport.stop();
-                    if (melodySequence) melodySequence.stop();
-                    if (bassSequence) bassSequence.stop();
-                    melodySequence.dispose();
-                    bassSequence.dispose();
+                    if (melodySequence) {
+                        melodySequence.stop();
+                        melodySequence.dispose();
+                    }
+                    if (bassSequence) {
+                        bassSequence.stop();
+                        bassSequence.dispose();
+                    }
+                    if (arpeggioSequence) {
+                        arpeggioSequence.stop();
+                        arpeggioSequence.dispose();
+                    }
                     isPlaying = false;
                     document.getElementById('timer').textContent = '0:00';
                     btn.textContent = 'Generate New Tune';
