@@ -257,7 +257,7 @@
             return arpeggio.filter(validNoteValue); // Ensure all notes are valid
         }
 
-        function clampBpm(bpm, min = 40, max = 180) {
+        function clampBpm(bpm, min = 40, max = 90) {
             return Math.max(min, Math.min(bpm, max));
         }
 
@@ -299,7 +299,7 @@
             const ctx = canvas.getContext('2d');
             const width = canvas.width;
             const height = canvas.height;
-            const biome = title.split(' ')[0];
+            const [biome, time] = title.split(' ');
             const colors = biomeColors[biome];
 
             ctx.clearRect(0, 0, width, height);
@@ -318,6 +318,15 @@
                 const shapeY = Math.floor(Math.random() * (height - shapeSize));
                 ctx.fillStyle = getRandomElement(colors);
                 ctx.fillRect(shapeX, shapeY, shapeSize, shapeSize);
+            }
+
+            // Apply different levels of darkness based on time of day
+            if (time === 'Dusk') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Darker for Dusk
+                ctx.fillRect(0, 0, width, height);
+            } else if (time === 'Night') {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; // Even darker for Night
+                ctx.fillRect(0, 0, width, height);
             }
 
             return canvas.toDataURL();
