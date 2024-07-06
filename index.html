@@ -152,7 +152,6 @@
             release: 1,
         }).connect(delay);
 
-        let autoplayTimeout;
         let melodySequence, bassSequence, arpeggioSequence;
         let isPlaying = false;
         let startTime;
@@ -401,7 +400,15 @@
                 const elapsedTime = Math.floor((currentTime - startTime) / 1000);
                 const minutes = Math.floor(elapsedTime / 60);
                 const seconds = elapsedTime % 60;
-                document.getElementById('timer').textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                document.getElementById('timer').textContent = formattedTime;
+                
+                if (document.getElementById('autoplayCheckbox').checked && elapsedTime >= 120) {
+                    const newSong = generateNewSong();
+                    playSong(newSong);
+                    startTime = Date.now(); // Reset the timer
+                }
+
                 requestAnimationFrame(updateTimer);
             }
         }
@@ -455,18 +462,6 @@
             bassSequence.start(0);
             arpeggioSequence.start(0);
             Tone.Transport.start();
-
-            // Clear any existing autoplay timeout
-            clearTimeout(autoplayTimeout);
-            if (document.getElementById('autoplayCheckbox').checked) {
-                autoplayTimeout = setTimeout(() => {
-                    const song = generateNewSong();
-                    playSong(song);
-                    isPlaying = true;
-                    startTime = Date.now();
-                    updateTimer();
-                }, 180000); // 3 minutes in milliseconds
-            }
         }
 
         function updateInventoryUI() {
@@ -538,9 +533,8 @@
             }
         }
 
-        async function togglePlay() {
-            try {
-                await Tone.start(); // Ensure Tone.js is started
+        function togglePlay() {
+            Tone.start().then(() => { // Ensure Tone.js is started
                 const btn = document.getElementById('generateBtn');
                 if (isPlaying) {
                     Tone.Transport.stop();
@@ -559,7 +553,6 @@
                     isPlaying = false;
                     document.getElementById('timer').textContent = '0:00';
                     btn.textContent = 'Generate New Tune';
-                    clearTimeout(autoplayTimeout); // Clear autoplay timeout
                 } else {
                     const song = generateNewSong();
                     playSong(song);
@@ -568,10 +561,9 @@
                     updateTimer();
                     btn.textContent = 'Stop';
                 }
-            } catch (error) {
-                console.error("An error occurred:", error);
-            }
+            }).catch(error => console.error("An error occurred:", error));
         }
+
         document.addEventListener('DOMContentLoaded', () => {
             document.body.style.backgroundImage = `url(${createDirtPixelArt()})`;
         });
