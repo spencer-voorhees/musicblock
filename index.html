@@ -101,18 +101,18 @@
             release: 1,
         }).connect(delay);
 
-        let melodySequence, bassSequence;
+        let melodySequence, bassSequence, arpeggioSequence;
         let isPlaying = false;
         let startTime;
         let currentSongIndex = -1;
         const songInventory = [];
 
-        const scales = {
-            'C': ['C', 'D', 'E', 'F', 'G', 'A', 'B'],
-            'G': ['G', 'A', 'B', 'C', 'D', 'E', 'F#'],
-            'A': ['A', 'B', 'C#', 'D', 'E', 'F#', 'G#'],
-            'F': ['F', 'G', 'A', 'Bb', 'C', 'D', 'E'],
-            'D': ['D', 'E', 'F#', 'G', 'A', 'B', 'C#']
+        const pentatonicScales = {
+            'C': ['C', 'D', 'E', 'G', 'A'],
+            'G': ['G', 'A', 'B', 'D', 'E'],
+            'A': ['A', 'B', 'C#', 'E', 'F#'],
+            'F': ['F', 'G', 'A', 'C', 'D'],
+            'D': ['D', 'E', 'F#', 'A', 'B']
         };
 
         const biomes = ['Forest', 'Plains', 'Desert', 'Mountains', 'Ocean', 'Jungle', 'Taiga', 'Swamp', 'Savanna', 'Mesa'];
@@ -135,22 +135,39 @@
             return arr[Math.floor(Math.random() * arr.length)];
         }
 
-        function generateMelody(scale, length) {
+        function generateChordProgression(scale) {
+            // Simple I - IV - V - I chord progression
+            const chords = [
+                [scale[0], scale[2], scale[4]], // I
+                [scale[3], scale[5], scale[0]], // IV
+                [scale[4], scale[6], scale[1]], // V
+                [scale[0], scale[2], scale[4]]  // I
+            ];
+            return chords;
+        }
+
+        function generateMelody(scale, length, chordProgression) {
             const melody = [];
             let previousNote = null;
+            let chordIndex = 0;
+
             for (let i = 0; i < length; i++) {
-                if (Math.random() < 0.2) {
-                    melody.push(null); // 20% chance of rest
+                if (i % 8 === 0 && i !== 0) {
+                    chordIndex = (chordIndex + 1) % chordProgression.length;
+                }
+                const chord = chordProgression[chordIndex];
+                
+                if (Math.random() < 0.1) {
+                    melody.push(null); // 10% chance of rest
                 } else {
                     let note;
                     if (previousNote === null || Math.random() < 0.3) {
-                        note = getRandomElement(scale);
+                        note = getRandomElement(chord);
                     } else {
-                        const direction = Math.random() < 0.5 ? 1 : -1;
-                        const index = (scale.indexOf(previousNote) + direction + 7) % 7;
+                        const index = (scale.indexOf(previousNote) + (Math.random() < 0.5 ? 1 : -1) + scale.length) % scale.length;
                         note = scale[index];
                     }
-                    const octave = Math.random() < 0.7 ? 4 : 5;
+                    const octave = Math.random() < 0.9 ? 4 : 5;
                     melody.push(note + octave);
                     previousNote = note;
                 }
@@ -158,11 +175,19 @@
             return melody;
         }
 
-        function generateBass(scale, length) {
+        function generateBass(scale, length, chordProgression) {
             const bass = [];
+            let chordIndex = 0;
+
             for (let i = 0; i < length; i++) {
-                if (i % 4 === 0 || Math.random() < 0.1) {
-                    bass.push(scale[Math.floor(i / 4) % 7] + "2");
+                if (i % 8 === 0 && i !== 0) {
+                    chordIndex = (chordIndex + 1) % chordProgression.length;
+                }
+                const chord = chordProgression[chordIndex];
+                const root = chord[0] + "2";
+                
+                if (i % 4 === 0 || (i % 4 === 2 && Math.random() < 0.3)) {
+                    bass.push(root);
                 } else {
                     bass.push(null);
                 }
@@ -170,23 +195,45 @@
             return bass;
         }
 
-        function generateNewSong() {
-            const key = getRandomElement(Object.keys(scales));
-            const scale = scales[key];
-            const melodyLine = generateMelody(scale, 32);
-            const bassLine = generateBass(scale, 32);
-            const title = generateTitle();
-            const bpm = Math.floor(Math.random() * 10) + 65;
-            const pixelArt = createPixelArt(title); // Get pixel art data URL
+        function generateArpeggio(scale, length, chordProgression) {
+            const arpeggio = [];
+            let chordIndex = 0;
 
-            const song = { title, melodyLine, bassLine, bpm, pixelArt }; // Include pixel art in song object
+            for (let i = 0; i < length; i++) {
+                if (i % 8 === 0 && i !== 0) {
+                    chordIndex = (chordIndex + 1) % chordProgression.length;
+                }
+                const chord = chordProgression[chordIndex];
+                const note = chord[i % 3] + "3";
+
+                if (Math.random() < 0.1) {
+                    arpeggio.push(null); // 10% chance of rest
+                } else {
+                    arpeggio.push(note);
+                }
+            }
+            return arpeggio;
+        }
+
+        function generateNewSong() {
+            const key = getRandomElement(Object.keys(pentatonicScales));
+            const scale = pentatonicScales[key];
+            const chordProgression = generateChordProgression(scale);
+            const melodyLine = generateMelody(scale, 32, chordProgression);
+            const bassLine = generateBass(scale, 32, chordProgression);
+            const arpeggioLine = generateArpeggio(scale, 32, chordProgression);
+            const title = generateTitle();
+            const bpm = Math.floor(Math.random() * 10) + 60; // Between 60 and 70 BPM
+            const pixelArt = createPixelArt(title);
+
+            const song = { title, melodyLine, bassLine, arpeggioLine, bpm, pixelArt };
             songInventory.unshift(song);
             if (songInventory.length > 5) {
                 songInventory.pop();
             }
             currentSongIndex = 0;
             updateInventoryUI();
-            updateMainPixelArt(pixelArt); // Update main canvas with new pixel art
+            updateMainPixelArt(pixelArt);
             return song;
         }
 
@@ -250,26 +297,34 @@
         function playSong(song) {
             if (melodySequence) melodySequence.dispose();
             if (bassSequence) melodySequence.dispose();
+            if (arpeggioSequence) arpeggioSequence.dispose();
 
             melodySequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
-                    piano.triggerAttackRelease(note, "8n", time, Math.random() * 0.5 + 0.5);
+                    piano.triggerAttackRelease(note, "8n", time, Math.random() * 0.3 + 0.5);
                 }
             }, song.melodyLine, "8n");
 
             bassSequence = new Tone.Sequence((time, note) => {
                 if (note !== null) {
-                    piano.triggerAttackRelease(note, "4n", time, 0.7);
+                    piano.triggerAttackRelease(note, "4n", time, 0.6);
                 }
             }, song.bassLine, "8n");
+
+            arpeggioSequence = new Tone.Sequence((time, note) => {
+                if (note !== null) {
+                    piano.triggerAttackRelease(note, "16n", time, Math.random() * 0.2 + 0.3);
+                }
+            }, song.arpeggioLine, "16n");
 
             Tone.Transport.bpm.value = song.bpm;
 
             document.getElementById('songTitle').textContent = song.title;
-            updateMainPixelArt(song.pixelArt); // Update main canvas with song's pixel art
+            updateMainPixelArt(song.pixelArt);
 
             melodySequence.start(0);
             bassSequence.start(0);
+            arpeggioSequence.start(0);
             Tone.Transport.start();
         }
 
